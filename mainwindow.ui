@@ -224,7 +224,7 @@
      <string>Area</string>
     </property>
    </widget>
-   <widget class="QLineEdit" name="lineEdit">
+   <widget class="QLineEdit" name="lineEdit_UpdateArea">
     <property name="geometry">
      <rect>
       <x>150</x>
@@ -247,7 +247,7 @@
      <string>Address</string>
     </property>
    </widget>
-   <widget class="QLineEdit" name="lineEdit_2">
+   <widget class="QLineEdit" name="lineEdit_UpdateAddress">
     <property name="geometry">
      <rect>
       <x>340</x>

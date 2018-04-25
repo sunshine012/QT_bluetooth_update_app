@@ -20,7 +20,6 @@ public:
     ~MainWindow();
 
 signals:
-    void trSerialData(const QByteArray &);
     void startupdate();
 
 private slots:

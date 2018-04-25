@@ -25,6 +25,7 @@ enum UpdateState
     CMD_SENDDATA,
     CMD_SENDDATA_WAIT,
     SENDING_FIRMWARE_DATA,
+    SENDING_FIRMWARE_DATA_WAIT,
     UPDATEFINISHED
 };
 
@@ -51,21 +52,29 @@ public:
     void setInifile(QString filename);
     void stop();
 
+private:
+    void StringToHex(QString str, QByteArray& senddata);
+    char ConvertHexChar(char ch);
+    int  bytesToInt(QByteArray bytes);
+    bool checkUpdateFinish(QString str1, QString str2);
+
 signals:
     void sendSerialData(const QByteArray &);
     void changeWidgeStatus(const WidgetID wgnum, const QString &);
 
 public slots:
     void update_run();
-    void receiveSerialData(const QByteArray &);
-    void onthreadfinished();
+
+public:
+     QByteArray receiveBuffer;
+     UpdateState currentState;
 
 private:
-    UpdateState currentState;
     QString IniFilename;
-    QByteArray receiveBuffer;
     QMutex mutex;
     QTimer *utimer;
 };
+
+#define P18F87_FLASH_ROW_SIZE           64             //erase bank size
 
 #endif // THREAD_UPDATE_H
