@@ -32,6 +32,7 @@ private slots:
     void SendObjSerialData(const QByteArray &);
     void UpdateWidgeStatus(const WidgetID wgnum, const QString &);
     void on_pushButton_stopUpdate_clicked();
+    void handle_update_finish(const ErrorID num);
 
 private:
     Ui::MainWindow *ui;

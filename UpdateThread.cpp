@@ -23,6 +23,7 @@ void UpdateThreadObj::update_run()
     QString Frmfilefullname, FrmOffset, FrmStAddr, FrmEndAddr;
     QString EEPROMfilefullname, EEPROMOffset, EEPROMStAddr, EEPROMEndAddr;
     QString tempLine, TextOneLine, TextFourLine, WritingAddr;
+    ErrorID errorflag = ERROR_NO;
 
     // 打开文件并读取文件内容
     qDebug()<<"m_objThread id:"<<QThread::currentThreadId();
@@ -56,7 +57,8 @@ void UpdateThreadObj::update_run()
         }
         if(fileError == true)
         {
-            QMessageBox::information(NULL, NULL, "The ini file is wrong!");
+            //QMessageBox::information(NULL, NULL, "The ini file is wrong!");
+            emit UpdateFinish(ERROR_INI_FILE_WRONG);
         }
         else
         {
@@ -72,15 +74,15 @@ void UpdateThreadObj::update_run()
             }
             else
             {
-                emit changeWidgeStatus(WG_EDIT_SENDDATA_BUFFER, "Firmware file open failed!");
-                currentState = UPDATEFINISHED;
+                emit UpdateFinish(ERROR_FIRMWARE_FILE_NOT_OPEN);
+                return;
             }
         }
     }
     else
     {
-        emit changeWidgeStatus(WG_EDIT_SENDDATA_BUFFER, "The ini file open error");
-        currentState = UPDATEFINISHED;
+        emit UpdateFinish(ERROR_INI_FILE_NOT_OPEN);
+        return;
     }
 
     QFile Firmwarefile(Frmfilefullname);
@@ -90,14 +92,16 @@ void UpdateThreadObj::update_run()
     while(1)
     {
         if(currentState == UPDATEFINISHED)
+        {
+            emit UpdateFinish(errorflag);
             return;
+        }
 
         switch(currentState)
         {
             case CMD_VS:
                 str = "{VS}";
                 emit sendSerialData(str.toLatin1());
-                emit changeWidgeStatus(WG_EDIT_SENDDATA_BUFFER, str);
                 setState(CMD_VS_WAIT);
                 utimer->start(100);
                 break;
@@ -115,7 +119,6 @@ void UpdateThreadObj::update_run()
             case CMD_BOOT:
                 str = "{BOOT}";
                 emit sendSerialData(str.toLatin1());
-                emit changeWidgeStatus(WG_EDIT_SENDDATA_BUFFER, str);
                 setState(CMD_BOOT_WAIT);
                 utimer->start(100);
                 break;
@@ -134,7 +137,6 @@ void UpdateThreadObj::update_run()
                 str = "05";
                 StringToHex(str, byr);
                 emit sendSerialData(byr);
-                emit changeWidgeStatus(WG_EDIT_SENDDATA_BUFFER, str);
                 setState(GET_VERSION_WAIT);
                 utimer->start(100);
                 break;
@@ -143,14 +145,13 @@ void UpdateThreadObj::update_run()
                 if(receiveBuffer.contains("192-160002-E"))
                 {
                     setState(CMD_SENDADDR);
-                    emit changeWidgeStatus(WG_EDIT_RECEIVEDATA_BUFFER, QString(receiveBuffer));
                     receiveBuffer.clear();
                 }
                 else if(utimer->remainingTime())
                     break;
                 else
                 {
-                    qDebug()<<"currentState:"<<currentState;
+                    errorflag = ERROR_VERSION_INFO;
                     setState(UPDATEFINISHED);
                 }
                 break;
@@ -159,7 +160,6 @@ void UpdateThreadObj::update_run()
                 str = "03";
                 StringToHex(str, byr);
                 emit sendSerialData(byr);
-                emit changeWidgeStatus(WG_EDIT_SENDDATA_BUFFER, str);
                 setState(CMD_SENDADDR_WAIT);
                 utimer->start(100);
                 break;
@@ -168,7 +168,6 @@ void UpdateThreadObj::update_run()
                 if(receiveBuffer.contains(byr))
                 {
                     setState(SEND_ADDR);
-                    emit changeWidgeStatus(WG_EDIT_RECEIVEDATA_BUFFER, QString(receiveBuffer));
                     receiveBuffer.clear();
 
                     if(FrmStAddr.length() == 4)
@@ -182,7 +181,7 @@ void UpdateThreadObj::update_run()
                     break;
                 else
                 {
-                    qDebug()<<"currentState:"<<currentState;
+                    errorflag = ERROR_ADDR_CMD_NO_RESPONSE;
                     setState(UPDATEFINISHED);
                 }
                 break;
@@ -196,7 +195,6 @@ void UpdateThreadObj::update_run()
                     str = FrmStAddr.mid(4, 2);
                 StringToHex(str, byr);
                 emit sendSerialData(byr);
-                emit changeWidgeStatus(WG_EDIT_SENDDATA_BUFFER, str);
                 setState(SEND_ADDR_WAIT);
                 utimer->start(100);
                 break;
@@ -220,7 +218,7 @@ void UpdateThreadObj::update_run()
                     break;
                 else
                 {
-                    qDebug()<<"currentState:"<<currentState;
+                    errorflag = ERROR_ADDR_DATA_NO_RESPONSE;
                     setState(UPDATEFINISHED);
                 }
                 break;
@@ -229,7 +227,6 @@ void UpdateThreadObj::update_run()
                 str = "02";
                 StringToHex(str, byr);
                 emit sendSerialData(byr);
-                emit changeWidgeStatus(WG_EDIT_SENDDATA_BUFFER, str);
                 setState(CMD_SENDDATA_WAIT);
                 utimer->start(100);
                 break;
@@ -238,7 +235,6 @@ void UpdateThreadObj::update_run()
                 if(receiveBuffer.contains(byr))
                 {
                     setState(SENDING_FIRMWARE_DATA);
-                    emit changeWidgeStatus(WG_EDIT_RECEIVEDATA_BUFFER, QString(receiveBuffer));
                     receiveBuffer.clear();
                     TextFourLine.clear();
                     TextOneLine.clear();
@@ -248,7 +244,7 @@ void UpdateThreadObj::update_run()
                     break;
                 else
                 {
-                    qDebug()<<"currentState:"<<currentState;
+                    errorflag = ERROR_FIRM_CMD_NO_RESPONSE;
                     setState(UPDATEFINISHED);
                 }
                 break;
@@ -290,7 +286,6 @@ void UpdateThreadObj::update_run()
                             str = "04";
                             StringToHex(str, byr);
                             emit sendSerialData(byr);
-                            emit changeWidgeStatus(WG_EDIT_SENDDATA_BUFFER, str);
                             setState(UPDATEFINISHED);
                         }
                         else
@@ -298,8 +293,8 @@ void UpdateThreadObj::update_run()
                     }
                     else
                     {
+                        errorflag = ERROR_FIRM_DATA_CHSUM_WRONG;
                         setState(UPDATEFINISHED);
-                        qDebug()<<"Write address"<<WritingAddr;
                     }
                     receiveBuffer.clear();
                 }
@@ -307,7 +302,7 @@ void UpdateThreadObj::update_run()
                     break;
                 else
                 {
-                    qDebug()<<"currentState:"<<currentState;
+                    errorflag = ERROR_FIRM_DATA_NO_RESPONSE;
                     setState(UPDATEFINISHED);
                 }
                 break;

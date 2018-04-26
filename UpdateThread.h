@@ -40,6 +40,21 @@ enum WidgetID
 };
 Q_DECLARE_METATYPE(WidgetID);
 
+enum ErrorID
+{
+    ERROR_NO = 0,
+    ERROR_INI_FILE_NOT_OPEN,
+    ERROR_INI_FILE_WRONG,
+    ERROR_FIRMWARE_FILE_NOT_OPEN,
+    ERROR_VERSION_INFO,
+    ERROR_ADDR_CMD_NO_RESPONSE,
+    ERROR_ADDR_DATA_NO_RESPONSE,
+    ERROR_FIRM_CMD_NO_RESPONSE,
+    ERROR_FIRM_DATA_NO_RESPONSE,
+    ERROR_FIRM_DATA_CHSUM_WRONG,
+};
+Q_DECLARE_METATYPE(ErrorID);
+
 class UpdateThreadObj : public QObject
 {
     Q_OBJECT
@@ -51,9 +66,9 @@ public:
     void setState(UpdateState i);
     void setInifile(QString filename);
     void stop();
+    void StringToHex(QString str, QByteArray& senddata);
 
 private:
-    void StringToHex(QString str, QByteArray& senddata);
     char ConvertHexChar(char ch);
     int  bytesToInt(QByteArray bytes);
     bool checkUpdateFinish(QString str1, QString str2);
@@ -61,6 +76,7 @@ private:
 signals:
     void sendSerialData(const QByteArray &);
     void changeWidgeStatus(const WidgetID wgnum, const QString &);
+    void UpdateFinish(const ErrorID num);
 
 public slots:
     void update_run();

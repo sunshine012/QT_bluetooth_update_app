@@ -23,15 +23,13 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->pushButton_stopUpdate->setEnabled(false);
     ui->lineEdit_UpdateAddress->setReadOnly(true);
     ui->lineEdit_UpdateArea->setReadOnly(true);
+
+    qRegisterMetaType<WidgetID>("WidgetID");
+    qRegisterMetaType<ErrorID>("ErrorID");
 }
 
 MainWindow::~MainWindow()
 {
-    if(m_ObjThread)
-    {
-        m_ObjThread->quit();
-        m_ObjThread->wait();
-    }
     delete ui;
 }
 
@@ -90,13 +88,8 @@ void MainWindow::on_pushButton_OpenCloseComm_clicked()
         ui->comboBox_Baudrate->setEnabled(true);
         ui->pushButton_OpenCloseComm->setText(tr("打开串口"));
         ui->pushButton_SendData->setEnabled(false);
-
-        if(ui->lineEdit_filename->text().isEmpty())
-        {
-            ui->pushButton_startupdate->setEnabled(false);
-            ui->pushButton_stopUpdate->setEnabled(false);
-        }
-
+        ui->pushButton_startupdate->setEnabled(false);
+        ui->pushButton_stopUpdate->setEnabled(false);
     }
 }
 
@@ -152,7 +145,6 @@ void MainWindow::on_pushButton_startupdate_clicked()
     qDebug()<<"m_Obj moved to m_ObjThread";
     qDebug()<<"current thread id:"<<QThread::currentThreadId();
 
-    qRegisterMetaType<WidgetID>("WidgetID");
 
     // 连接信号与槽， 结束信号
     connect(m_ObjThread, &QThread::finished, m_ObjThread, &QThread::deleteLater);
@@ -162,6 +154,7 @@ void MainWindow::on_pushButton_startupdate_clicked()
     // 连接信号与槽， 开始升级， 更新窗口显示数据
     connect(this, &MainWindow::startupdate, m_Obj, &UpdateThreadObj::update_run);
     connect(m_Obj, &UpdateThreadObj::changeWidgeStatus, this, &MainWindow::UpdateWidgeStatus);
+    connect(m_Obj, &UpdateThreadObj::UpdateFinish, this, &MainWindow::handle_update_finish);
 
     m_Obj->setInifile(filefullname);
     m_ObjThread->start();
@@ -226,5 +219,82 @@ void MainWindow::UpdateWidgeStatus(const WidgetID wgnum, const QString &str)
         default:
             break;
     }
+}
+
+void MainWindow::handle_update_finish(const ErrorID num)
+{
+    QString errMsg;
+    QMessageBox msgBox;
+
+    switch(num)
+    {
+        case ERROR_NO:
+            errMsg = "Update successfully";
+            break;
+
+        case ERROR_INI_FILE_NOT_OPEN:
+            errMsg = "Can't open the ini file!";
+            break;
+
+        case ERROR_INI_FILE_WRONG:
+            errMsg = "The ini file is wrong!";
+            break;
+        case ERROR_FIRMWARE_FILE_NOT_OPEN:
+            errMsg = "Can't open the firmware file!";
+            break;
+
+        case ERROR_VERSION_INFO:
+            errMsg = "Did't receive right version infomation!";
+            break;
+
+        case ERROR_ADDR_CMD_NO_RESPONSE:
+            errMsg = "Didn't receive address command response!";
+            break;
+
+        case ERROR_ADDR_DATA_NO_RESPONSE:
+            errMsg = "Didn't receive address data response!";
+            break;
+
+        case ERROR_FIRM_CMD_NO_RESPONSE:
+            errMsg = "Didn't receive firmware command response!";
+            break;
+
+        case ERROR_FIRM_DATA_NO_RESPONSE:
+            errMsg = "Didn't receive firmware data response!";
+            break;
+
+        case ERROR_FIRM_DATA_CHSUM_WRONG:
+            errMsg = "Check sum error";
+            break;
+
+        default:
+            break;
+    }
+    int ret = msgBox.information(this, "Complete", errMsg, QMessageBox::Ok);
+    if(ret == QMessageBox::Ok)
+    {
+        QString str = "04";
+        QByteArray byr;
+        m_Obj->StringToHex(str, byr);
+        serial->write(byr);
+        m_ObjThread->quit();
+        m_ObjThread->wait();
+        if(m_ObjThread->isFinished())
+        {
+            // 关闭串口
+            serial->clear();
+            serial->close();
+            serial->deleteLater();
+
+            //恢复设置功能
+            ui->comboBox_CommPort->setEnabled(true);
+            ui->comboBox_Baudrate->setEnabled(true);
+            ui->pushButton_OpenCloseComm->setText(tr("打开串口"));
+            ui->pushButton_SendData->setEnabled(false);
+            ui->pushButton_startupdate->setEnabled(false);
+            ui->pushButton_stopUpdate->setEnabled(false);
+        }
+    }
+
 }
 
